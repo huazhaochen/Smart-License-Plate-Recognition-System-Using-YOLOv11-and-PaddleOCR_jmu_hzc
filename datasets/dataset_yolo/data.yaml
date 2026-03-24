@@ -1,0 +1,7 @@
+path: D:/project/design/datasets/dataset_yolo
+train: images/train
+val: images/val
+
+names:
+  0: blue_plate
+  1: green_plate

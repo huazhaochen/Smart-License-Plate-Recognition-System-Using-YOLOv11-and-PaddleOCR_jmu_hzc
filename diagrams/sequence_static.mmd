@@ -1,0 +1,49 @@
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#ffffff',
+  'lineColor':'#334155',
+  'textColor':'#0f172a',
+  'primaryColor':'#f8fafc',
+  'primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#eef2f7',
+  'tertiaryColor':'#f1f5f9',
+  'noteBkgColor':'#fff7ed',
+  'noteBorderColor':'#fb923c',
+  'actorBkg':'#f8fafc',
+  'actorBorder':'#94a3b8',
+  'actorTextColor':'#0f172a',
+  'activationBkgColor':'#e2e8f0',
+  'activationBorderColor':'#94a3b8',
+  'sequenceNumberColor':'#475569'
+}}}%%
+sequenceDiagram
+autonumber
+actor 用户
+participant AppUI as AppUI(Gradio)
+participant Pipeline as PlatePipeline
+participant YOLO as YoloDetector
+participant OCR as OcrRecognizer
+participant VIP as VipStore
+participant Logger as HistoryLogger
+participant FS as 文件系统(CSV/Images)
+
+用户->>AppUI: 上传图片并点击立即分析
+AppUI->>Pipeline: process_image(image, flip, is_stream=false)
+Pipeline->>Pipeline: 预处理(BGR/翻转)
+Pipeline->>YOLO: detect(img, conf=0.5)
+YOLO-->>Pipeline: boxes
+
+loop 每个检测框
+  Pipeline->>Pipeline: 裁剪车牌区域
+  Pipeline->>OCR: recognize(cropped_plate)
+  OCR-->>Pipeline: plate_text
+  Pipeline->>VIP: contains(plate_text)
+  VIP-->>Pipeline: is_marked
+  Pipeline->>Pipeline: 绘制中文框与标签
+  Pipeline->>Logger: save_capture(...)
+  Logger->>FS: 保存抓拍图片
+  Pipeline->>Logger: append_csv(row)
+  Logger->>FS: 追加CSV记录
+end
+
+Pipeline-->>AppUI: 返回渲染图像与研判文本
+AppUI-->>用户: 展示结果

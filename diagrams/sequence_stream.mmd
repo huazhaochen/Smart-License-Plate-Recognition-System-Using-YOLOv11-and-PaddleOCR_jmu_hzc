@@ -1,0 +1,57 @@
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#ffffff',
+  'lineColor':'#334155',
+  'textColor':'#0f172a',
+  'primaryColor':'#f8fafc',
+  'primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#eef2f7',
+  'tertiaryColor':'#f1f5f9',
+  'noteBkgColor':'#fff7ed',
+  'noteBorderColor':'#fb923c',
+  'actorBkg':'#f8fafc',
+  'actorBorder':'#94a3b8',
+  'actorTextColor':'#0f172a',
+  'activationBkgColor':'#e2e8f0',
+  'activationBorderColor':'#94a3b8',
+  'sequenceNumberColor':'#475569'
+}}}%%
+sequenceDiagram
+autonumber
+participant Cam as 摄像头帧源
+participant AppUI as AppUI流式回调
+participant Pipeline as PlatePipeline
+participant YOLO as YoloDetector
+participant OCR as OcrRecognizer
+participant Cache as CooldownCache
+participant VIP as VipStore
+participant Logger as HistoryLogger
+participant FS as 文件系统(CSV/Images)
+
+loop 每一帧
+  Cam->>AppUI: frame
+  AppUI->>Pipeline: process_image(frame, flip, is_stream=true)
+  Pipeline->>YOLO: detect(frame, conf=0.5)
+  YOLO-->>Pipeline: boxes
+
+  loop 每个检测框
+    Pipeline->>OCR: recognize(cropped_plate)
+    OCR-->>Pipeline: plate_text
+    Pipeline->>VIP: contains(plate_text)
+    VIP-->>Pipeline: is_marked
+    Pipeline->>Cache: should_save(plate_text, now)
+
+    alt 首次出现或超过5秒
+      Cache-->>Pipeline: true
+      Pipeline->>Logger: save_capture(...)
+      Logger->>FS: 写入图片
+      Pipeline->>Logger: append_csv(row)
+      Logger->>FS: 写入CSV
+      Pipeline->>Cache: touch(plate_text, now)
+    else 5秒内重复车牌
+      Cache-->>Pipeline: false
+      Pipeline->>Pipeline: 仅渲染，不入库
+    end
+  end
+
+  Pipeline-->>AppUI: 返回渲染帧与文本
+end

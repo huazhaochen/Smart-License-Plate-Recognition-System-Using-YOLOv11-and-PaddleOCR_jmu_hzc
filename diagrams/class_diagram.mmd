@@ -1,0 +1,56 @@
+classDiagram
+direction LR
+
+class AppUI {
+  +run_static(img, flip)
+  +run_stream(img, flip)
+  +open_history_folder()
+}
+
+class PlatePipeline {
+  +process_image(image, need_flip, is_stream)
+  +draw_chinese_box(img, box, text, color)
+}
+
+class YoloDetector {
+  -model_path
+  +detect(img_bgr, conf)
+}
+
+class OcrRecognizer {
+  -lang
+  -use_angle_cls
+  +recognize(cropped_plate)
+}
+
+class VipStore {
+  -vip_file
+  +load()
+  +save()
+  +add(plate)
+  +remove(plate)
+  +contains(plate)
+}
+
+class HistoryLogger {
+  -history_dir
+  -img_dir
+  -csv_file
+  +init_storage()
+  +save_capture(draw_img, meta)
+  +append_csv(row)
+}
+
+class CooldownCache {
+  -ttl_seconds = 5
+  -cache
+  +should_save(plate, now)
+  +touch(plate, now)
+}
+
+AppUI --> PlatePipeline : 调用
+PlatePipeline *-- YoloDetector : 组合
+PlatePipeline *-- OcrRecognizer : 组合
+PlatePipeline --> VipStore : 查询重点车辆
+PlatePipeline --> HistoryLogger : 写日志与抓拍
+PlatePipeline --> CooldownCache : 实时节流
